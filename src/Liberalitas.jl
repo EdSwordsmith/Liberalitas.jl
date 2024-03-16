@@ -9,6 +9,11 @@ macro class(name, slots)
         version = 1
     end
 
+    if slots isa Symbol
+        # there is only one slot
+        slots = Expr(:tuple, slots)
+    end
+
     struct_name = Symbol(name, "__v", version)
     struct_head = Expr(:(<:), struct_name, name)
     struct_class = Expr(:struct, true, struct_head, Expr(:block, slots.args...))
