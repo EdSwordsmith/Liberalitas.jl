@@ -1,6 +1,6 @@
 module Liberalitas
 
-macro class(name, slots)
+macro class(name, slots, metaclass)
     if isdefined(__module__, name)
         class_type = getfield(__module__, name)
         classversion = getfield(__module__, :classversion)
@@ -21,14 +21,24 @@ macro class(name, slots)
         global classversion(::Type{$name}) = $version
         global classof(::$name) = $name
 
+        let instance = $metaclass()
+            global metaclass(::Type{$name}) = instance
+        end
+
         $name
     end)
+end
+
+@class StandardClass () StandardClass
+
+macro class(name, slots)
+    esc(:(@class $name $slots StandardClass))
 end
 
 macro class(name)
     esc(:(@class $name ()))
 end
 
-export @class
+export @class, StandardClass
 
 end
