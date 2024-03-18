@@ -11,7 +11,7 @@ macro class(name, slots, metaclass)
 
     struct_name = Symbol(name, "__v", version)
     struct_head = Expr(:(<:), struct_name, name)
-    struct_class = Expr(:struct, true, struct_head, Expr(:block, slots.args...))
+    struct_class = Expr(:struct, metaclass != :ImmutableClass, struct_head, Expr(:block, slots.args...))
 
     esc(quote
         abstract type $name end
@@ -29,7 +29,8 @@ macro class(name, slots, metaclass)
     end)
 end
 
-@class StandardClass () StandardClass
+@class ImmutableClass () ImmutableClass
+@class StandardClass () ImmutableClass
 
 macro class(name, slots)
     esc(:(@class $name $slots StandardClass))
@@ -39,6 +40,6 @@ macro class(name)
     esc(:(@class $name ()))
 end
 
-export @class, StandardClass
+export @class, StandardClass, ImmutableClass
 
 end
