@@ -15,9 +15,9 @@ macro class(name, slots=Expr(:tuple), metaclass=:StandardClass)
 
     esc(quote
         abstract type $name end
-        $struct_class
+        @kwdef $struct_class
 
-        global $name(args...) = $struct_name(args...)
+        global $name(args...; kwargs...) = $struct_name(args...; kwargs...)
         global classversion(::Type{$name}) = $version
         global classof(::$name) = $name
 
