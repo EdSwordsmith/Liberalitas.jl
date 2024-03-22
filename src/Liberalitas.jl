@@ -22,7 +22,7 @@ macro class(name, slots=Expr(:tuple), metaclass=:StandardClass)
         global classof(::$name) = $name
 
         let instance = $metaclass()
-            global metaclass(::Type{$name}) = instance
+            global classof(::Type{$name}) = instance
         end
 
         $name
