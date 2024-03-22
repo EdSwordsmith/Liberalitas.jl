@@ -1,6 +1,6 @@
 module Liberalitas
 
-macro class(name, slots, metaclass)
+macro class(name, slots=Expr(:tuple), metaclass=:StandardClass)
     if isdefined(__module__, name)
         class_type = getfield(__module__, name)
         classversion = getfield(__module__, :classversion)
@@ -31,14 +31,6 @@ end
 
 @class ImmutableClass () ImmutableClass
 @class StandardClass () ImmutableClass
-
-macro class(name, slots)
-    esc(:(@class $name $slots StandardClass))
-end
-
-macro class(name)
-    esc(:(@class $name ()))
-end
 
 export @class, StandardClass, ImmutableClass
 
