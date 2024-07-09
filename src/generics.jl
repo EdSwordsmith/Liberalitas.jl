@@ -52,7 +52,7 @@ end
 @method compatible_metaclasses(class::Class, super::Class) = issubclass(classof(class), classof(super))
 
 @method allocate_instance(class::Class) = LibObj(class, NamedTuple{class.slots}(ntuple(_ -> missing, length(class.slots))))
-@method allocate_instance(class::EntityClass) = Entity(class)
+@method allocate_instance(class::EntityClass) = Entity(class, missing)
 
 @method compute_cpl(class::Class) = begin
     visited = Set{Instance}()
@@ -87,7 +87,9 @@ end
     end
 end
 
-@method initialize(gf::GenericFunction; initargs...) = nothing
+@method initialize(gf::GenericFunction; combination, initargs...) = begin
+	gf.combination = combination
+end
 
 @method initialize(class::Class; name, initargs...) = begin
     class.name = name

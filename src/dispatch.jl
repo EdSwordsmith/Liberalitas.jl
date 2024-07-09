@@ -25,13 +25,55 @@ function findclass(provided_class, arg_class)
     end
 end
 
+function sort_methods(args_types, methods)
+    sort(methods, lt=(x, y) -> args_more_specific(x, y, args_types), by=method -> method.types)
+end
+
 function apply_methods(methods::Vector{Instance}, args, kwargs)
     next = () -> apply_methods(methods[2:end], args, kwargs)
     # TODO: handle no applicable method
     methods[1].proc(next, args...; kwargs...)
 end
 
-(em::EffectiveMethod)(args, kwargs) = apply_methods(em.methods, args, kwargs)
+# Effective method for simple method combination (around + primary methods)
+struct SimpleEffectiveMethod
+    methods
+end
+
+(em::SimpleEffectiveMethod)(args, kwargs) = apply_methods(em.methods, args, kwargs)
+
+function simple_method_combination(args_types, methods)
+    around_methods = sort_methods(args_types, filter(method -> method.qualifier == :around, methods))
+    primary_methods = sort_methods(args_types, filter(method -> method.qualifier == :primary, methods))
+    @assert !isempty(primary_methods) # TODO: throw error with message when there are no applicable primary methods
+    SimpleEffectiveMethod([around_methods; primary_methods])
+end
+
+# Operator method combinations
+struct OperatorEffectiveMethod
+    operator
+    methods
+end
+
+(em::OperatorEffectiveMethod)(args, kwargs) =
+    let next = () -> error("next cannot be called in operator method combinations.")
+        em.operator(map((m) -> m.proc(next, args...; kwargs...), em.methods))
+    end
+
+function collect_method_combination(args_types, methods)
+    primary_methods = sort_methods(args_types, filter(method -> method.qualifier == :primary, methods))
+    OperatorEffectiveMethod(collect, primary_methods)
+end
+
+function sum_method_combination(args_types, methods)
+    primary_methods = sort_methods(args_types, filter(method -> method.qualifier == :primary, methods))
+    OperatorEffectiveMethod(sum, primary_methods)
+end
+
+function vcat_method_combination(args_types, methods)
+    primary_methods = sort_methods(args_types, filter(method -> method.qualifier == :primary, methods))
+    OperatorEffectiveMethod((results) -> vcat(results...), primary_methods)
+end
 
 # Generic function call
 function (e::Entity)(args...; kwargs...)
@@ -41,12 +83,7 @@ function (e::Entity)(args...; kwargs...)
     else
         methods = collect(values(e.methods))
         compatible_methods = filter(method -> compatible_args(args_types, method.types), methods)
-        # Compute effective method
-        sort_methods = (methods) -> sort(methods, lt=(x, y) -> args_more_specific(x, y, args_types), by=method -> method.types)
-        around_methods = sort_methods(filter(method -> method.qualifier == :around, compatible_methods))
-        primary_methods = sort_methods(filter(method -> method.qualifier == :primary, compatible_methods))
-        @assert !isempty(primary_methods) # TODO: throw error with message when there are no applicable primary methods
-        e.cache[args_types] = EffectiveMethod([around_methods; primary_methods])
+        e.cache[args_types] = e.combination(args_types, compatible_methods)
     end
 
     effective_method(args, kwargs)

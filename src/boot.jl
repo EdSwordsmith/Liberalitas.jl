@@ -55,19 +55,15 @@ issubclass(c1::Instance, c2::Instance) = c2 in c1.cpl
 toclass(t::Type) = BuiltIn(t)
 toclass(x) = x
 
-# Effective method for simple method combination (around + primary methods)
-struct EffectiveMethod
-    methods
-end
-
 # This struct is used to represent instances of generic functions
 # TODO: better name for Entity struct
 mutable struct Entity <: Instance
     class
     methods
     cache
+    combination
 
-    Entity(class) = new(class, Dict{Tuple,Instance}(), Dict{Tuple,EffectiveMethod}())
+    Entity(class, combination) = new(class, Dict{Tuple,Instance}(), Dict{Tuple, Any}(), combination)
 end
 
 classof(obj::Entity) = getfield(obj, :class)
@@ -98,7 +94,7 @@ make = function (class; slots...)
         qualifier = get(slots, :qualifier, missing)
         LibObj(class, (types=types, proc=proc, qualifier=qualifier))
     elseif class == GenericFunction
-        Entity(class)
+        Entity(class, get(slots, :combination, missing))
     end
 end
 
@@ -130,8 +126,10 @@ macro class(head, slots=Expr(:tuple))
     end)
 end
 
-macro generic(name)
-    esc(:($name = make(GenericFunction)))
+macro generic(head)
+    name = head isa Symbol ? head : head.args[1]
+    combination = head isa Symbol ? :simple_method_combination : head.args[2]
+    esc(:($name = make(GenericFunction, combination=$combination)))
 end
 
 macro method(form)
@@ -181,5 +179,5 @@ Class.cpl = (Class, Object.cpl...)
 @class PrimitiveClass(Class) (name, slots, dsupers, cpl)
 
 @class EntityClass(Class) (name, slots, dsupers, cpl)
-@class GenericFunction() isa EntityClass (methods, cache)
+@class GenericFunction() isa EntityClass (methods, cache, combination)
 @class MultiMethod() (types, proc, qualifier)
