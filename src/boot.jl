@@ -63,7 +63,8 @@ mutable struct Entity <: Instance
     cache
     combination
 
-    Entity(class, combination) = new(class, Dict{Tuple,Instance}(), Dict{Tuple, Any}(), combination)
+    Entity(class) = new(class, missing, missing, missing)
+    Entity(class, combination) = new(class, Dict{Tuple,Instance}(), Dict{Tuple,Any}(), combination)
 end
 
 classof(obj::Entity) = getfield(obj, :class)
@@ -76,17 +77,29 @@ end
 
 
 # Bootstrap the Class object and set its class to itself
-Class = LibObj(missing, (name=:Class, slots=(:name, :slots, :dsupers, :cpl)))
+Class = LibObj(missing, (
+    name=:Class,
+    slots=(:name, :slots, :dsupers, :cpl, :initargs, :initforms),
+    initargs=(:name, :slots, :dsupers, :initargs, :initforms),
+    initforms=(
+        slots=() -> (),
+        dsupers=() -> (Object,),
+        initargs=() -> (),
+        initforms=() -> (),
+    )
+))
 setfield!(Class, :class, Class)
 
 make = function (class; slots...)
     if class == Class || class == EntityClass
         class_name = get(slots, :name, missing)
         class_slots = get(slots, :slots, ())
+        class_initargs = get(slots, :initargs, ())
+        class_initforms = get(slots, :initforms, ())
         class_dsupers = get(slots, :dsupers, ())
         instance = LibObj(class, missing)
         class_cpl = isempty(class_dsupers) ? (instance,) : (instance, class_dsupers[1].cpl...)
-        setfield!(instance, :slots, (name=class_name, slots=class_slots, dsupers=class_dsupers, cpl=class_cpl))
+        setfield!(instance, :slots, (name=class_name, slots=class_slots, dsupers=class_dsupers, cpl=class_cpl, initargs=class_initargs, initforms=class_initforms))
         instance
     elseif class == MultiMethod
         types = get(slots, :types, missing)
@@ -109,7 +122,24 @@ end
 
 
 macro class(head, slots=Expr(:tuple))
-    class_slots = Expr(:tuple, map(QuoteNode, slots.args)...)
+    slotname(slot::Symbol) = slot
+    slotname(slot::Expr) = slot.args[1]
+    isinitarg(::Symbol) = true
+    isinitarg(slot::Expr) = !any((arg) -> arg == QuoteNode(:noinitarg), slot.args)
+    isinitformarg(arg) = arg isa Expr && arg.head == :call && arg.args[2] == QuoteNode(:initform)
+    extractiniform(arg::Expr) = :(() -> $(arg.args[3]))
+    initform(::Symbol) = nothing
+    initform(slot::Expr) =
+        let lambdas = map(extractiniform, filter(isinitformarg, slot.args)),
+            assign = map((lambda) -> :($(slotname(slot)) = $lambda), lambdas)
+
+            isempty(assign) ? nothing : assign[1]
+        end
+
+    class_slots = Expr(:tuple, map(QuoteNode ∘ slotname, slots.args)...)
+    class_initargs = Expr(:tuple, map(QuoteNode ∘ slotname, filter(isinitarg, slots.args))...)
+    class_initforms = Expr(:tuple, filter(!isnothing, map(initform, slots.args))...)
+
     explicit_metaclass = head.args[1] == :isa
     metaclass = explicit_metaclass ? head.args[3] : :Class
     class_head = explicit_metaclass ? head.args[2] : head
@@ -122,7 +152,7 @@ macro class(head, slots=Expr(:tuple))
     supers = Expr(:tuple, class_supers...)
 
     esc(quote
-        $class_name = make($metaclass, name=$(QuoteNode(class_name)), dsupers=$supers, slots=$class_slots)
+        $class_name = make($metaclass, name=$(QuoteNode(class_name)), dsupers=$supers, slots=$class_slots, initargs=$class_initargs, initforms=$class_initforms)
     end)
 end
 
@@ -133,7 +163,6 @@ macro generic(head)
 end
 
 macro method(form)
-    # TODO: validate syntax?
     @assert form.head == :(=)
     head = form.args[1]
     body = form.args[2]
@@ -176,8 +205,12 @@ Class.dsupers = (Object,)
 Class.cpl = (Class, Object.cpl...)
 
 @class JuliaType(Top)
-@class PrimitiveClass(Class) (name, slots, dsupers, cpl)
+@class PrimitiveClass(Class) [name slots dsupers cpl initargs initforms]
 
-@class EntityClass(Class) (name, slots, dsupers, cpl)
-@class GenericFunction() isa EntityClass (methods, cache, combination)
-@class MultiMethod() (types, proc, qualifier)
+@class EntityClass(Class) [name slots dsupers cpl initargs initforms]
+@class GenericFunction() isa EntityClass [
+    [methods :initform => Dict{Tuple, Instance}()]
+    [cache :initform => Dict()]
+    [combination :initform => simple_method_combination]
+]
+@class MultiMethod() [types proc qualifier]

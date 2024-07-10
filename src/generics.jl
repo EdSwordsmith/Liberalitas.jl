@@ -4,6 +4,7 @@
     else
         print(io, class.name, " (class instance of ", classof(class).name, ")")
         print(io, "\n slots: ", class.slots)
+        print(io, "\n initargs: ", class.initargs)
         print(io, "\n direct supers: ", class.dsupers)
     end
 
@@ -51,8 +52,8 @@ end
 
 @method compatible_metaclasses(class::Class, super::Class) = issubclass(classof(class), classof(super))
 
-@method allocate_instance(class::Class) = LibObj(class, NamedTuple{class.slots}(ntuple(_ -> missing, length(class.slots))))
-@method allocate_instance(class::EntityClass) = Entity(class, missing)
+@method allocate_instance(class::Class) = LibObj(class, NamedTuple())
+@method allocate_instance(class::EntityClass) = Entity(class)
 
 @method compute_cpl(class::Class) = begin
     visited = Set{Instance}()
@@ -83,18 +84,18 @@ end
 
 @method initialize(object::Object; initargs...) = begin
     for slot in classof(object).slots
-        setproperty!(object, slot, get(initargs, slot, missing))
+        value = if !isempty(initargs) && slot in classof(object).initargs && haskey(initargs, slot)
+            get(initargs, slot, missing)
+        elseif !isempty(classof(object).initforms) && haskey(classof(object).initforms, slot)
+            getfield(classof(object).initforms, slot)()
+        end
+
+        setproperty!(object, slot, value)
     end
 end
 
-@method initialize(gf::GenericFunction; combination, initargs...) = begin
-	gf.combination = combination
-end
-
-@method initialize(class::Class; name, initargs...) = begin
-    class.name = name
-    class.dsupers = get(initargs, :dsupers, (Object,))
-    class.slots = get(initargs, :slots, ())
+@method initialize(class::Class; initargs...) = begin
+    next()
     class.cpl = compute_cpl(class)
 
     compatible = (super) -> compatible_metaclasses(class, super)
