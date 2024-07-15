@@ -13,7 +13,15 @@ function merge_initforms(class, initforms)
 end
 
 # single inheritance
-@class SingleInheritanceClass(Class) [name dslots slots dsupers cpl initargs initforms]
+@class SingleInheritanceClass(Class) [
+    name
+    [dslots :initform => ()]
+    [slots :initform => ()]
+    [dsupers :initform => (Object,)]
+    [cpl :noinitarg]
+    [initargs :initform => ()]
+    [initforms :initform => NamedTuple()]
+]
 
 @method initialize(class::SingleInheritanceClass; initargs...) = begin
     next()
@@ -30,7 +38,15 @@ end
 end
 
 # multiple inheritance
-@class MultipleInheritanceClass(Class) [name dslots slots dsupers cpl initargs initforms]
+@class MultipleInheritanceClass(Class) [
+    name
+    [dslots :initform => ()]
+    [slots :initform => ()]
+    [dsupers :initform => (Object,)]
+    [cpl :noinitarg]
+    [initargs :initform => ()]
+    [initforms :initform => NamedTuple()]
+]
 
 @method initialize(class::MultipleInheritanceClass; initargs...) = begin
     next()

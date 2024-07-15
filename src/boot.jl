@@ -31,7 +31,7 @@ mutable struct LibObj <: Instance
 end
 
 classof(obj::LibObj) = getfield(obj, :class)
-getslot(obj::LibObj, slot::Symbol) = getfield(getfield(obj, :slots), slot)
+getslot(obj::LibObj, slot::Symbol) = get(getfield(obj, :slots), slot, missing)
 
 function Base.setproperty!(obj::LibObj, slot::Symbol, value)
     @assert slot in getslot(classof(obj), :slots)
@@ -80,13 +80,8 @@ end
 Class = LibObj(missing, (
     name=:Class,
     slots=(:name, :slots, :dsupers, :cpl, :initargs, :initforms),
-    initargs=(:name, :slots, :dsupers, :initargs, :initforms),
-    initforms=(
-        slots=() -> (),
-        dsupers=() -> (Object,),
-        initargs=() -> (),
-        initforms=() -> (),
-    )
+    initargs=(),
+    initforms=()
 ))
 setfield!(Class, :class, Class)
 
@@ -108,6 +103,19 @@ make = function (class; slots...)
         LibObj(class, (types=types, proc=proc, qualifier=qualifier))
     elseif class == GenericFunction
         Entity(class, get(slots, :combination, missing))
+    end
+end
+
+initialize = function(obj; slots...)
+    class = classof(obj)
+
+    if class == Class
+        obj.name = get(slots, :name, missing)
+        obj.slots = get(slots, :slots, ())
+        obj.initargs = get(slots, :initargs, ())
+        obj.initforms = get(slots, :initforms, ())
+        obj.dsupers = get(slots, :dsupers, ())
+        obj.cpl = isempty(obj.dsupers) ? (obj,) : (obj, obj.dsupers[1].cpl...)
     end
 end
 
@@ -152,7 +160,12 @@ macro class(head, slots=Expr(:tuple))
     supers = Expr(:tuple, class_supers...)
 
     esc(quote
-        $class_name = make($metaclass, name=$(QuoteNode(class_name)), dsupers=$supers, slots=$class_slots, initargs=$class_initargs, initforms=$class_initforms)
+        if isdefined(@__MODULE__, $(QuoteNode(class_name)))
+            initialize($class_name, name=$(QuoteNode(class_name)), dsupers=$supers, slots=$class_slots, initargs=$class_initargs, initforms=$class_initforms)
+            $class_name
+        else
+            $class_name = make($metaclass, name=$(QuoteNode(class_name)), dsupers=$supers, slots=$class_slots, initargs=$class_initargs, initforms=$class_initforms)
+        end
     end)
 end
 
@@ -200,14 +213,35 @@ end
 @class Top()
 @class Object(Top)
 
-# Set Class's dsupers and cpl
-Class.dsupers = (Object,)
-Class.cpl = (Class, Object.cpl...)
+# Redefine Class
+# This properly sets the values of dsupers, cpl and initforms
+@class Class() [
+    name
+    [slots :initform => ()]
+    [dsupers :initform => (Object,)]
+    [cpl :noinitarg]
+    [initargs :initform => ()]
+    [initforms :initform => NamedTuple()]
+]
 
 @class JuliaType(Top)
-@class PrimitiveClass(Class) [name slots dsupers cpl initargs initforms]
+@class PrimitiveClass(Class) [
+    name
+    [slots :initform => ()]
+    [dsupers :initform => (JuliaType,)]
+    [cpl :noinitarg]
+    [initargs :initform => ()]
+    [initforms :initform => NamedTuple()]
+]
 
-@class EntityClass(Class) [name slots dsupers cpl initargs initforms]
+@class EntityClass(Class) [
+    name
+    [slots :initform => ()]
+    [dsupers :initform => (JuliaType,)]
+    [cpl :noinitarg]
+    [initargs :initform => ()]
+    [initforms :initform => NamedTuple()]
+]
 @class GenericFunction() isa EntityClass [
     [methods :initform => Dict{Tuple, Instance}()]
     [cache :initform => Dict()]

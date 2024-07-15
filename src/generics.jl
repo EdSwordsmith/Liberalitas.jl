@@ -82,6 +82,8 @@ end
     tuple(cpl...)
 end
 
+@generic initialize
+
 @method initialize(object::Object; initargs...) = begin
     for slot in classof(object).slots
         value = if !isempty(initargs) && slot in classof(object).initargs && haskey(initargs, slot)
