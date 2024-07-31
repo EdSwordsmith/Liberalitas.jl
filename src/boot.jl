@@ -9,7 +9,7 @@ classof(obj::T) where {T} = classof(MaybeInstance(T), obj)
 classof(::IsInstance, obj) = error("classof not implemented for ", typeof(obj))
 classof(::IsNotInstance, obj) = BuiltIn(typeof(obj))
 
-getslot(obj::T, ::Symbol) where {T} = classof(MaybeInstance(T), obj)
+getslot(obj::T, ::Symbol) where {T} = getslot(MaybeInstance(T), obj)
 getslot(::IsInstance, obj, ::Symbol) = error("getslot not implemented for ", typeof(obj))
 getslot(::IsNotInstance, obj, ::Symbol) = error("getslot not available for ", typeof(obj))
 
