@@ -1,6 +1,6 @@
 module Liberalitas
-export classof, getslot, issubclass, toclass, Instance
 export Class, Top, Object, JuliaType, PrimitiveClass, EntityClass, GenericFunction, MultiMethod
+export classof, getslot, issubclass, toclass, default_metaclass, Instance
 export @class, @method, @generic
 include("boot.jl")
 

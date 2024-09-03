@@ -85,6 +85,8 @@ Class = LibObj(missing, (
 ))
 setfield!(Class, :class, Class)
 
+default_metaclass() = Class
+
 make = function (class; slots...)
     if class == Class || class == EntityClass
         class_name = get(slots, :name, missing)
@@ -106,7 +108,7 @@ make = function (class; slots...)
     end
 end
 
-initialize = function(obj; slots...)
+initialize = function (obj; slots...)
     class = classof(obj)
 
     if class == Class
@@ -149,7 +151,7 @@ macro class(head, slots=Expr(:tuple))
     class_initforms = Expr(:tuple, filter(!isnothing, map(initform, slots.args))...)
 
     explicit_metaclass = head.args[1] == :isa
-    metaclass = explicit_metaclass ? head.args[3] : :Class
+    metaclass = explicit_metaclass ? head.args[3] : :(default_metaclass())
     class_head = explicit_metaclass ? head.args[2] : head
     class_name = class_head.args[1]
 
@@ -243,7 +245,7 @@ end
     [initforms :initform => NamedTuple()]
 ]
 @class GenericFunction() isa EntityClass [
-    [methods :initform => Dict{Tuple, Instance}()]
+    [methods :initform => Dict{Tuple,Instance}()]
     [cache :initform => Dict()]
     [combination :initform => simple_method_combination]
 ]
