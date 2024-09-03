@@ -109,9 +109,7 @@ make = function (class; slots...)
 end
 
 initialize = function (obj; slots...)
-    class = classof(obj)
-
-    if class == Class
+    if classof(obj) == Class
         obj.name = get(slots, :name, missing)
         obj.slots = get(slots, :slots, ())
         obj.initargs = get(slots, :initargs, ())
@@ -163,6 +161,7 @@ macro class(head, slots=Expr(:tuple))
 
     esc(quote
         if isdefined(@__MODULE__, $(QuoteNode(class_name)))
+            @assert classof($class_name) == $metaclass "Cannot change metaclasses when redefining classes."
             initialize($class_name, name=$(QuoteNode(class_name)), dsupers=$supers, slots=$class_slots, initargs=$class_initargs, initforms=$class_initforms)
             $class_name
         else

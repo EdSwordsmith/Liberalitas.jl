@@ -43,9 +43,10 @@ end
 (em::SimpleEffectiveMethod)(args, kwargs) = apply_methods(em.methods, args, kwargs)
 
 function simple_method_combination(args_types, methods)
+    @assert !isempty(methods) "There is no applicable method for the generic function when called with these arguments."
     around_methods = sort_methods(args_types, filter(method -> method.qualifier == :around, methods))
     primary_methods = sort_methods(args_types, filter(method -> method.qualifier == :primary, methods))
-    @assert !isempty(primary_methods) # TODO: throw error with message when there are no applicable primary methods
+    @assert !isempty(primary_methods) "There is no primary method for the generic function when called with these arguments."
     SimpleEffectiveMethod([around_methods; primary_methods])
 end
 
