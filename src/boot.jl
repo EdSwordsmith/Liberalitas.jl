@@ -19,7 +19,6 @@ abstract type Instance end
 MaybeInstance(::Type{<:Instance}) = IsInstance()
 
 function Base.getproperty(obj::Instance, slot::Symbol)
-    @assert slot in getslot(classof(obj), :slots)
     getslot(obj, slot)
 end
 
@@ -55,26 +54,31 @@ issubclass(c1::Instance, c2::Instance) = c2 in c1.cpl
 toclass(t::Type) = BuiltIn(t)
 toclass(x) = x
 
-# This struct is used to represent instances of generic functions
-# TODO: better name for Entity struct
-mutable struct Entity <: Instance
+ClassesTuple = Tuple{Vararg{Instance}}
+
+# This struct is used to represent instances of methods
+struct LibMethod <: Instance
     class
-    methods
-    cache
+    types::ClassesTuple
+    proc::Function
+    qualifier::Symbol
+end
+
+classof(obj::LibMethod) = getfield(obj, :class)
+getslot(obj::LibMethod, slot::Symbol) = getfield(obj, slot)
+
+# This struct is used to represent instances of generic functions
+struct Entity <: Instance
+    class
+    methods::Dict{Tuple{ClassesTuple,Symbol},LibMethod}
+    cache::Dict{ClassesTuple,Any}
     combination
 
-    Entity(class) = new(class, missing, missing, missing)
-    Entity(class, combination) = new(class, Dict{Tuple,Instance}(), Dict{Tuple,Any}(), combination)
+    Entity(class, combination) = new(class, Dict(), Dict(), combination)
 end
 
 classof(obj::Entity) = getfield(obj, :class)
 getslot(obj::Entity, slot::Symbol) = getfield(obj, slot)
-
-function Base.setproperty!(obj::Entity, slot::Symbol, value)
-    @assert slot in getslot(classof(obj), :slots)
-    setfield!(obj, slot, value)
-end
-
 
 # Bootstrap the Class object and set its class to itself
 Class = LibObj(missing, (
@@ -88,7 +92,7 @@ setfield!(Class, :class, Class)
 default_metaclass() = Class
 
 make = function (class; slots...)
-    if class == Class || class == EntityClass
+    if class == Class || class == EntityClass || class == MethodClass
         class_name = get(slots, :name, missing)
         class_slots = get(slots, :slots, ())
         class_initargs = get(slots, :initargs, ())
@@ -102,7 +106,7 @@ make = function (class; slots...)
         types = get(slots, :types, missing)
         proc = get(slots, :proc, missing)
         qualifier = get(slots, :qualifier, missing)
-        LibObj(class, (types=types, proc=proc, qualifier=qualifier))
+        LibMethod(class, types, proc, qualifier)
     elseif class == GenericFunction
         Entity(class, get(slots, :combination, missing))
     end
@@ -238,14 +242,29 @@ end
 @class EntityClass(Class) [
     name
     [slots :initform => ()]
-    [dsupers :initform => (JuliaType,)]
+    [dsupers :initform => (Object,)]
     [cpl :noinitarg]
     [initargs :initform => ()]
     [initforms :initform => NamedTuple()]
 ]
+
 @class GenericFunction() isa EntityClass [
     [methods :initform => Dict{Tuple,Instance}()]
     [cache :initform => Dict()]
     [combination :initform => simple_method_combination]
 ]
-@class MultiMethod() [types proc qualifier]
+
+@class MethodClass(Class) [
+    name
+    [slots :initform => ()]
+    [dsupers :initform => (Object,)]
+    [cpl :noinitarg]
+    [initargs :initform => ()]
+    [initforms :initform => NamedTuple()]
+]
+
+@class MultiMethod() isa MethodClass [
+    types
+    proc
+    qualifier
+]

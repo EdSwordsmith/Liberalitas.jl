@@ -29,10 +29,10 @@ function sort_methods(args_types, methods)
     sort(methods, lt=(x, y) -> args_more_specific(x, y, args_types), by=method -> method.types)
 end
 
-function apply_methods(methods::Vector{Instance}, args, kwargs)
+function apply_methods(methods, args, kwargs)
     next = () -> apply_methods(methods[2:end], args, kwargs)
     # TODO: handle no applicable method
-    methods[1].proc(next, args...; kwargs...)
+    getslot(methods[1], :proc)(next, args...; kwargs...)
 end
 
 # Effective method for simple method combination (around + primary methods)

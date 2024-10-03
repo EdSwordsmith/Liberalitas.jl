@@ -52,8 +52,11 @@ end
 
 @method compatible_metaclasses(class::Class, super::Class) = issubclass(classof(class), classof(super))
 
-@method allocate_instance(class::Class) = LibObj(class, NamedTuple())
-@method allocate_instance(class::EntityClass) = Entity(class)
+@method allocate_instance(class::Class; initargs...) = LibObj(class, NamedTuple())
+@method allocate_instance(class::EntityClass; initargs...) =
+    Entity(class, get(initargs, :combination, simple_method_combination))
+@method allocate_instance(class::MethodClass; initargs...) =
+    LibMethod(class, get(initargs, :types, missing), get(initargs, :proc, missing), get(initargs, :qualifier, :primary))
 
 @method compute_cpl(class::Class) = begin
     visited = Set{Instance}()
@@ -111,11 +114,14 @@ end
     end
 end
 
+@method initialize(generic::GenericFunction; initargs...) = begin end
+@method initialize(method::MultiMethod; initargs...) = begin end
+
 make = begin
     local make_gf
 
     @method make_gf(class::Class; initargs...) =
-        let instance = allocate_instance(class)
+        let instance = allocate_instance(class; initargs...)
             initialize(instance; initargs...)
             instance
         end

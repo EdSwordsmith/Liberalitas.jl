@@ -5,11 +5,11 @@ end
 
 function merge_initforms(class, initforms)
     removekeys(::Tuple, _) = ()
-    removekeys(nt::NamedTuple{names}, keys) where names =
+    removekeys(nt::NamedTuple{names}, keys) where {names} =
         NamedTuple{filter(x -> x ∉ keys, names)}(nt)
 
     filtered = removekeys(initforms, class.slots)
-    (;filtered..., class.initforms...)
+    (; filtered..., class.initforms...)
 end
 
 # single inheritance
@@ -58,3 +58,7 @@ end
     class.initforms = foldr(merge_initforms, sorted_classes, init=NamedTuple())
     class.slots = (union(map(super -> super.slots, class.dsupers)..., class.slots)...,)
 end
+
+# make single inheritance class compatible with multiple inheritance class
+@method compatible_metaclasses(::SingleInheritanceClass, ::MultipleInheritanceClass) = true
+@method compatible_metaclasses(::MultipleInheritanceClass, ::SingleInheritanceClass) = true
