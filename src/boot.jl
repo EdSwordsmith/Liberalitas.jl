@@ -176,7 +176,7 @@ end
 
 macro generic(head)
     name = head isa Symbol ? head : head.args[1]
-    combination = head isa Symbol ? :simple_method_combination : head.args[2]
+    combination = head isa Symbol ? :standard_method_combination : head.args[2]
     esc(:($name = make(GenericFunction, combination=$combination)))
 end
 

@@ -35,46 +35,40 @@ function apply_methods(methods, args, kwargs)
     getslot(methods[1], :proc)(next, args...; kwargs...)
 end
 
-# Effective method for simple method combination (around + primary methods)
-struct SimpleEffectiveMethod
+# Effective method for standard method combination (around + primary methods)
+struct StandardEffectiveMethod
     methods
 end
 
-(em::SimpleEffectiveMethod)(args, kwargs) = apply_methods(em.methods, args, kwargs)
+(em::StandardEffectiveMethod)(args, kwargs) = apply_methods(em.methods, args, kwargs)
 
-function simple_method_combination(args_types, methods)
+function standard_method_combination(args_types, methods)
     @assert !isempty(methods) "There is no applicable method for the generic function when called with these arguments."
     around_methods = sort_methods(args_types, filter(method -> method.qualifier == :around, methods))
     primary_methods = sort_methods(args_types, filter(method -> method.qualifier == :primary, methods))
     @assert !isempty(primary_methods) "There is no primary method for the generic function when called with these arguments."
-    SimpleEffectiveMethod([around_methods; primary_methods])
+    StandardEffectiveMethod([around_methods; primary_methods])
 end
 
-# Operator method combinations
-struct OperatorEffectiveMethod
+# Simple method combinations
+struct SimpleEffectiveMethod
     operator
     methods
 end
 
-(em::OperatorEffectiveMethod)(args, kwargs) =
-    let next = () -> error("next cannot be called in operator method combinations.")
+(em::SimpleEffectiveMethod)(args, kwargs) =
+    let next = () -> error("next cannot be called in simple method combinations.")
         em.operator(map((m) -> m.proc(next, args...; kwargs...), em.methods))
     end
 
-function collect_method_combination(args_types, methods)
+function simple_method_combination(operator, args_types, methods)
     primary_methods = sort_methods(args_types, filter(method -> method.qualifier == :primary, methods))
-    OperatorEffectiveMethod(collect, primary_methods)
+    SimpleEffectiveMethod(operator, primary_methods)
 end
 
-function sum_method_combination(args_types, methods)
-    primary_methods = sort_methods(args_types, filter(method -> method.qualifier == :primary, methods))
-    OperatorEffectiveMethod(sum, primary_methods)
-end
-
-function vcat_method_combination(args_types, methods)
-    primary_methods = sort_methods(args_types, filter(method -> method.qualifier == :primary, methods))
-    OperatorEffectiveMethod((results) -> vcat(results...), primary_methods)
-end
+collect_method_combination(args_types, methods) = simple_method_combination(collect, args_types, methods)
+sum_method_combination(args_types, methods) = simple_method_combination(sum, args_types, methods)
+vcat_method_combination(args_types, methods) = simple_method_combination((results) -> vcat(results...), args_types, methods)
 
 # Generic function call
 function (e::Entity)(args...; kwargs...)
