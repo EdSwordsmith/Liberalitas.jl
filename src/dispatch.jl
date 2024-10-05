@@ -3,8 +3,7 @@ function compatible_args(classes1, classes2)
         return false
     end
 
-    pairs = zip(classes1, classes2)
-    all((pair) -> issubclass(pair[begin], pair[end]), pairs)
+    all(((c1, c2),) -> issubclass(c1, c2), zip(classes1, classes2))
 end
 
 function args_more_specific(m1_classes::Tuple, m2_classes::Tuple, provided_classes::Tuple)
